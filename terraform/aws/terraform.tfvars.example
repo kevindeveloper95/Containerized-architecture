@@ -1,0 +1,41 @@
+aws_region   = "us-east-1"
+environment  = "dev"
+project_name = "ritual-roast"
+vpc_cidr     = "10.0.0.0/16"
+
+# standalone_ec2_enable = true
+# standalone_ec2_instance_type = "t2.micro"
+# standalone_ec2_install_ecs_agent = true
+# ecs_enable = true
+# ecs_cluster_name = "ritual-roast-dev"
+# ecs_image_tag = "latest"
+# ecs_backend_desired_count = 2
+# ecs_frontend_desired_count = 2
+
+# standalone_ec2_ecs_cluster_name = ""  # vacío = mismo nombre que ecs_cluster_name
+
+# ecr_enable = true
+# ecr_force_delete = true
+
+# standalone_ec2_instance_type = "t3.small"  # Next.js build; t2.micro suele quedarse sin RAM
+# standalone_ec2_root_volume_gb = 40
+
+# ZIP del curso (usar raw.githubusercontent.com, no la URL /blob/ del navegador):
+# standalone_ec2_frontend_zip_url = "https://raw.githubusercontent.com/iaasacademy/aws-solutions-architect-associate/main/section11/ritual-roast-nextjs-frontend.zip"
+# standalone_ec2_backend_zip_url  = "https://raw.githubusercontent.com/iaasacademy/aws-solutions-architect-associate/main/section11/ritual-roast-flask-backend.zip"
+# standalone_ec2_frontend_dir_name = "ritual-roast-nextjs-frontend"
+# standalone_ec2_backend_dir_name  = "ritual-roast-flask-backend"
+# standalone_ec2_app_base_dir = "/home/ec2-user"
+# standalone_ec2_docker_image_tag = "latest"
+# standalone_ec2_build_and_push_ecr = true
+
+# ec2_public_key = "ssh-ed25519 AAAA..."  # key_pair / EKS
+
+# RDS: por defecto rotación Lambda + secreto mysql-credentials (ver variables.tf).
+# rds_mysql_password = null  # null + sin rotación => secreto maestro rds!db-* de RDS
+# rds_mysql_enable_secret_rotation = true
+# create_mysql_credentials_secret = true
+# rds_mysql_rotation_lambda_deploy_in_vpc = true
+
+# jobberapp_subdomain = "jobberapp.tudominio.com"
+# api_subdomain       = "api.jobberapp.tudominio.com"
