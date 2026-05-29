@@ -20,9 +20,9 @@ vpc_cidr     = "10.0.0.0/16"
 # standalone_ec2_instance_type = "t3.small"  # Next.js build; t2.micro suele quedarse sin RAM
 # standalone_ec2_root_volume_gb = 40
 
-# ZIP del curso (usar raw.githubusercontent.com, no la URL /blob/ del navegador):
-# standalone_ec2_frontend_zip_url = "https://raw.githubusercontent.com/iaasacademy/aws-solutions-architect-associate/main/section11/ritual-roast-nextjs-frontend.zip"
-# standalone_ec2_backend_zip_url  = "https://raw.githubusercontent.com/iaasacademy/aws-solutions-architect-associate/main/section11/ritual-roast-flask-backend.zip"
+# URLs directas a ZIP del frontend/backend (raw URL, no la página /blob/ del navegador):
+# standalone_ec2_frontend_zip_url = "https://..."
+# standalone_ec2_backend_zip_url  = "https://..."
 # standalone_ec2_frontend_dir_name = "ritual-roast-nextjs-frontend"
 # standalone_ec2_backend_dir_name  = "ritual-roast-flask-backend"
 # standalone_ec2_app_base_dir = "/home/ec2-user"

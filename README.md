@@ -2,7 +2,7 @@
 
 # ☕ Ritual Roast
 
-**Recetas de café en la nube** — Next.js + Flask + MySQL sobre AWS
+**Gestión de recetas de café** — aplicación web con arquitectura de microservicios en AWS
 
 <br/>
 
@@ -14,149 +14,190 @@
 ![Flask](https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white)
 
-<br/>
-
-[🏗️ Arquitectura](#-arquitectura-en-aws) ·
-[📁 Estructura](#-estructura-del-repositorio) ·
-[🚀 Despliegue](#-despliegue-resumen) ·
-[📖 Infra Terraform](terraform/aws/README.md)
-
 </div>
 
 ---
 
-Aplicación web para gestionar recetas de café: un frontend en **Next.js** y un API en **Flask** que persiste datos en **MySQL**. La infraestructura vive en AWS y se despliega con **Terraform** (proyecto del curso *AWS Solutions Architect Associate*, sección de microservicios).
+## Tabla de contenidos
 
-Este repositorio junta el código de las apps y la definición de la nube en un solo lugar.
-
----
-
-## 📁 Estructura del repositorio
-
-```
-Ritual-Roast-V2/
-├── 📊 Diagram/
-│   ├── Arquitectura-microservicios-SSA.drawio
-│   └── Arquitectura-microservicios-SSA.png
-├── ⚛️ ritual-roast-nextjs-frontend/     → puerto 3000
-├── 🐍 ritual-roast-flask-backend/       → puerto 5000
-└── ☁️ terraform/aws/                    → infra AWS
-```
-
-| | Carpeta | Qué hace |
-|---|---------|----------|
-| ⚛️ | `ritual-roast-nextjs-frontend` | UI React/Next.js; llama al API con `/api/...` |
-| 🐍 | `ritual-roast-flask-backend` | REST + MySQL; credenciales en **Secrets Manager** |
-| ☁️ | `terraform/aws` | VPC, ALB, ECS Fargate, ECR, RDS, EC2 build, IAM |
-| 📊 | `Diagram/` | Diagrama de arquitectura (draw.io + PNG) |
+1. [Descripción](#descripción)
+2. [Características](#características)
+3. [Arquitectura](#arquitectura)
+4. [Stack tecnológico](#stack-tecnológico)
+5. [Estructura del repositorio](#estructura-del-repositorio)
+6. [Desarrollo local](#desarrollo-local)
+7. [Despliegue en AWS](#despliegue-en-aws)
+8. [Después del despliegue](#después-del-despliegue)
+9. [Documentación de infraestructura](#documentación-de-infraestructura)
 
 ---
 
-## 🏗️ Arquitectura en AWS
+## Descripción
 
-El diagrama resume cómo entra el tráfico, dónde corren los contenedores y cómo se protege la base de datos.
+**Ritual Roast** es una aplicación para consultar y administrar recetas de café. El frontend (Next.js) consume un API REST (Flask) que persiste la información en **MySQL**. Toda la plataforma en la nube está definida como código con **Terraform**: red, balanceo, contenedores, base de datos y pipeline de imágenes Docker.
 
-![Arquitectura de microservicios Ritual Roast](Diagram/Arquitectura-microservicios-SSA.png)
+Este monorepo incluye el código de las aplicaciones, el diagrama de arquitectura y los módulos de infraestructura.
 
-> 💡 Si solo ves el `.drawio`, ábrelo en [diagrams.net](https://app.diagrams.net) y exporta **PNG** como `Diagram/Arquitectura-microservicios-SSA.png`.
+---
 
-### 🔍 Lectura del diagrama (de fuera hacia dentro)
+## Características
 
-| | Capa | Qué representa |
-|---|------|----------------|
-| 🌐 | **Internet y DMZ** | Usuarios → **ALB** en subnets públicas. SG: **80/443** desde `0.0.0.0/0` |
-| 🖥️ | **Web / App** | **Next.js TG** `:3000` (default) · **Flask TG** `:5000` (`/api/*`) · **ECS Fargate** + **ECR** |
-| 🗄️ | **Datos** | **RDS MySQL** en subnets data · SG: **3306** solo desde app web |
-| 🔐 | **Secretos** | **Secrets Manager** + **Lambda** de rotación · Flask/ECS leen credenciales |
-| 🏭 | **Build (EC2)** | Descarga ZIPs, `docker build/push` → **ECR** (no recibe tráfico del ALB) |
-| 🔀 | **VPC** | IGW + NAT + AZ **2a/2b** · En Terraform: CIDR `10.0.0.0/16` (`dev`) |
+| Área | Detalle |
+|------|---------|
+| **Frontend** | Next.js, React y Tailwind en el puerto **3000** |
+| **Backend** | Flask en el puerto **5000**, credenciales vía **AWS Secrets Manager** |
+| **Tráfico** | **ALB** enruta la web y las rutas `/api/*` al API sin dominio aparte |
+| **Compute** | **ECS Fargate** (dos servicios, escalado por tareas) |
+| **Imágenes** | **ECR**; build inicial desde EC2 con user-data |
+| **Datos** | **RDS MySQL** en subnets privadas, sin acceso público |
+| **Seguridad** | Security groups por capa; rotación de secretos con Lambda (opcional) |
+
+---
+
+## Arquitectura
+
+### Diagrama
+
+![Diagrama de arquitectura — Ritual Roast](Diagram/Arquitectura-microservicios-SSA.png)
+
+> El archivo editable está en `Diagram/Arquitectura-microservicios-SSA.drawio` ([diagrams.net](https://app.diagrams.net)). Para actualizar la imagen del README, exporta un PNG con el mismo nombre en `Diagram/`.
+
+### Capas (de internet hacia la base de datos)
+
+| Capa | Componentes | Rol |
+|------|-------------|-----|
+| **Pública (DMZ)** | Internet Gateway, ALB | Entrada HTTP **:80** desde internet |
+| **Aplicación (privada)** | ECS Fargate, target groups | Next.js **:3000** (default) y Flask **:5000** (`/api/*`) |
+| **Datos (privada)** | RDS MySQL | Solo tráfico **3306** desde la capa de aplicación |
+| **Plataforma** | ECR, Secrets Manager, Lambda | Imágenes, credenciales y rotación |
+| **Build** | EC2 en subnet webapp | Construye y publica imágenes en ECR (no recibe tráfico de usuarios) |
+
+### Flujo de una petición
 
 ```mermaid
 flowchart LR
-  User[👤 Usuario] --> ALB[⚖️ ALB :80]
-  ALB -->|default| FE[⚛️ Next.js :3000]
-  ALB -->|/api/*| BE[🐍 Flask :5000]
-  BE --> RDS[(🗄️ RDS MySQL)]
-  BE --> SM[🔐 Secrets Manager]
-  EC2[🖥️ EC2 build] --> ECR[📦 ECR]
+  User[Usuario] --> ALB[ALB :80]
+  ALB -->|ruta por defecto| FE[Next.js :3000]
+  ALB -->|/api/*| BE[Flask :5000]
+  BE --> RDS[(RDS MySQL)]
+  BE --> SM[Secrets Manager]
+  EC2[EC2 build] --> ECR[ECR]
   ECR --> FE
   ECR --> BE
 ```
 
----
-
-## 🔗 Cómo se hablan frontend y backend
-
-El navegador abre la URL del ALB (`http://<alb_dns_name>`). Next.js hace `fetch("/api/get_recipe")`; el **mismo host** y el ALB envían `/api/*` a **Flask**. En producción no hace falta otro dominio para el API.
-
-| Entorno | Quién enruta |
-|---------|----------------|
-| 🏠 Local | Cada app en su puerto |
-| ☁️ AWS | **ALB** (regla de path) |
+El navegador usa una sola URL (`http://<alb_dns_name>`). Las llamadas `fetch("/api/...")` las resuelve el ALB hacia Flask gracias a la regla de path `/api/*`.
 
 ---
 
-## 📱 Aplicaciones
+## Stack tecnológico
 
-### ⚛️ Frontend — `ritual-roast-nextjs-frontend`
-
-| | Detalle |
-|---|---------|
-| 🧩 | Next.js, React, Tailwind |
-| 🔌 | Puerto **3000** |
-| 🐳 | `Dockerfile` en la raíz |
-
-### 🐍 Backend — `ritual-roast-flask-backend`
-
-| | Detalle |
-|---|---------|
-| 🧩 | Flask, `mysql-connector`, boto3 |
-| 🔌 | Puerto **5000** |
-| ❤️ | Health check ALB: `/api/health` |
-| 🔧 | User-data parchea región y `SecretId` en `app.py` antes del build |
+| Capa | Tecnologías |
+|------|-------------|
+| Cliente | Next.js 15, React, Tailwind CSS |
+| API | Python, Flask, `mysql-connector`, boto3 |
+| Datos | Amazon RDS (MySQL 8) |
+| Contenedores | Docker, Amazon ECR, ECS Fargate |
+| Red y entrada | VPC, subnets públicas/privadas, NAT, ALB |
+| IaC | Terraform (AWS provider ~> 5.x) |
+| Operaciones | SSM Session Manager, CloudWatch Logs |
 
 ---
 
-## 🚀 Despliegue (resumen)
+## Estructura del repositorio
 
-📖 Guía completa → **[terraform/aws/README.md](terraform/aws/README.md)**
+```
+Ritual-Roast-V2/
+├── Diagram/                          # Diagrama de arquitectura (draw.io + PNG)
+├── ritual-roast-nextjs-frontend/     # Aplicación web (puerto 3000)
+├── ritual-roast-flask-backend/       # API REST (puerto 5000)
+└── terraform/aws/                    # Infraestructura AWS (Terraform)
+```
+
+| Directorio | Contenido |
+|------------|-----------|
+| `ritual-roast-nextjs-frontend/` | UI, componentes y cliente HTTP hacia `/api` |
+| `ritual-roast-flask-backend/` | API, conexión a MySQL y lectura de secretos |
+| `terraform/aws/` | Módulos VPC, ALB, ECS, ECR, RDS, EC2, IAM, etc. |
+| `Diagram/` | Documentación visual de la arquitectura |
+
+---
+
+## Desarrollo local
+
+### Frontend
+
+```bash
+cd ritual-roast-nextjs-frontend
+npm install
+npm run dev
+```
+
+Abre `http://localhost:3000`. En local el API suele estar en otro puerto o detrás de un proxy; en AWS el ALB unifica ambos.
+
+### Backend
+
+```bash
+cd ritual-roast-flask-backend
+python -m venv .venv
+# Activar el entorno e instalar requirements.txt
+pip install -r requirements.txt
+```
+
+Configura región y `SecretId` en `app.py` (o usa credenciales de desarrollo apuntando a tu MySQL). El contenedor en AWS recibe esos valores vía user-data al construir la imagen.
+
+---
+
+## Despliegue en AWS
+
+La guía detallada (variables, módulos, troubleshooting) está en **[terraform/aws/README.md](terraform/aws/README.md)**.
+
+### Requisitos
+
+- Terraform >= 1.1
+- Cuenta AWS con permisos para VPC, EC2, ECS, ECR, RDS, ALB, IAM y Secrets Manager
+- AWS CLI configurado
+
+### Comandos
 
 ```powershell
 cd terraform/aws
+cp terraform.tfvars.example terraform.tfvars   # Ajustar valores; no subir tfvars a git
 terraform init
 terraform plan
 terraform apply
 ```
 
-| Paso | Qué pasa |
-|------|----------|
-| 1️⃣ | **EC2** construye y sube imágenes a **ECR** (~20–40 min la primera vez) |
-| 2️⃣ | **ECS Fargate** registra tareas en los target groups |
-| 3️⃣ | Abres **`alb_dns_name`** en el navegador |
+### Secuencia esperada
+
+1. Terraform crea red, ALB, ECR, RDS, cluster ECS y la EC2 de build.
+2. La EC2 ejecuta user-data: descarga fuentes, `docker build` y `docker push` a ECR (la primera vez puede tardar **20–40 minutos**).
+3. Los servicios ECS arrancan tareas Fargate y se registran en los target groups.
+4. Accedes a la app con el output **`alb_dns_name`**.
 
 ---
 
-## 🧭 Recursos útiles tras el deploy
+## Después del despliegue
 
-| | Necesitas | Dónde |
-|---|-----------|--------|
-| 🌍 | URL pública | Output `alb_dns_name` |
-| 📜 | Log bootstrap EC2 | SSM → `sudo tail -f /var/log/user-data-docker.log` |
-| 📦 | Imágenes Docker | Consola **ECR** · outputs `ecr_*_repository_url` |
-| 🎯 | Servicios | Consola **ECS** → cluster `ritual-roast-dev` |
+| Objetivo | Dónde / cómo |
+|----------|----------------|
+| URL de la aplicación | Output `alb_dns_name` |
+| Estado del bootstrap EC2 | SSM → `sudo tail -f /var/log/user-data-docker.log` |
+| Imágenes en ECR | Consola ECR o outputs `ecr_*_repository_url` |
+| Servicios y tareas | Consola ECS → cluster `ritual-roast-dev` (nombre por defecto) |
+| Salud del balanceador | Target groups del ALB → estado **healthy** |
 
 ---
 
-## 📚 Licencia y contexto
+## Documentación de infraestructura
 
-Proyecto educativo basado en **IaaS Academy** (ZIPs y arquitectura de referencia).
-
-Ajustes propios: Terraform modular, ECS Fargate, ECR, EC2 user-data, regla ALB `/api/*`, y fixes operativos (bash, IPv4, AL2023).
+- **[terraform/aws/README.md](terraform/aws/README.md)** — módulos, variables, flujo del ALB, EC2, ECS, RDS y resolución de problemas.
+- **[Diagram/README.md](Diagram/README.md)** — archivos del diagrama.
 
 ---
 
 <div align="center">
 
-**☕ Ritual Roast** — *Infra como código, café como servicio*
+**Ritual Roast** — microservicios, infraestructura como código
 
 </div>
